@@ -42,7 +42,9 @@ class MainActivity : ComponentActivity() {
                                 refresh++
                             }) { Text("Start monitoring") }
                             OutlinedButton(onClick = {
-                                startService(Intent(this@MainActivity, MonitorService::class.java).setAction("STOP"))
+                                TrackerStore.setRunning(this@MainActivity, false)
+                                TrackerStore.setScanStatus(this@MainActivity, "Stopped")
+                                stopService(Intent(this@MainActivity, MonitorService::class.java))
                                 refresh++
                             }) { Text("Stop") }
                         }
