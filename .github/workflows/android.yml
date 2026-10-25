@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,3 +26,18 @@ jobs:
         with:
           name: vehicle-tracker-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish downloadable APK
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk vehicle-tracker-watch.apk
+          if gh release view v0.1.1-test >/dev/null 2>&1; then
+            gh release upload v0.1.1-test vehicle-tracker-watch.apk --clobber
+          else
+            gh release create v0.1.1-test vehicle-tracker-watch.apk \
+              --title "Vehicle Tracker Watch 0.1.1 — Test Build" \
+              --notes "Android Bluetooth scanning prototype for controlled testing. Does not reliably identify AirTags or confirm a tracker is following a vehicle." \
+              --prerelease
+          fi

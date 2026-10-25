@@ -14,3 +14,7 @@ No network access is requested. Sightings are held on the device in preferences,
 - Tracker-protocol classification and improved association across rotating IDs, with proper real-device testing.
 - Separate baseline familiar devices from persistent suspects and notification throttling.
 - Automated tests, privacy controls, and clearer detection-health diagnostics.
+
+## Share test app (Android)
+
+Download the public testing APK at https://github.com/fitzgr/vehicle-theft-detection/releases/download/v0.1.1-test/vehicle-tracker-watch.apk . Open the APK on an Android phone and allow installation from that browser or Files app if prompted. Tap Start monitoring and grant requested Bluetooth permissions. Use Refresh sightings to view nearby Bluetooth Low Energy devices. This prototype only detects general BLE advertisements; its alerts are experimental and not evidence of stalking or car theft.

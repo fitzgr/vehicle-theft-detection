@@ -28,7 +28,12 @@ class MonitorService : Service() {
             currentWindow += key
             TrackerStore.record(this@MonitorService, key, name, result.rssi)
         }
-        override fun onScanFailed(errorCode: Int) { scanning = false }
+        override fun onScanFailed(errorCode: Int) {
+            scanning = false
+            TrackerStore.setScanStatus(this@MonitorService, "Bluetooth scan failed (code $errorCode)")
+            TrackerStore.setRunning(this@MonitorService, false)
+            stopSelf()
+        }
     }
     override fun onBind(intent: Intent?) = null
     override fun onCreate() {
@@ -40,11 +45,14 @@ class MonitorService : Service() {
         if (intent?.action == "STOP") {
             stopScan()
             TrackerStore.setRunning(this, false)
+            TrackerStore.setScanStatus(this, "Stopped")
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+        val permission = if (Build.VERSION.SDK_INT >= 31) Manifest.permission.BLUETOOTH_SCAN else Manifest.permission.ACCESS_FINE_LOCATION
+        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+            TrackerStore.setScanStatus(this, "Bluetooth scanning permission was not granted")
             TrackerStore.setRunning(this, false)
             stopSelf()
             return START_NOT_STICKY
@@ -57,10 +65,23 @@ class MonitorService : Service() {
         stopScan()
         currentWindow.clear()
         try {
-            val scanner = bluetooth.adapter?.bluetoothLeScanner ?: return
+            val scanner = bluetooth.adapter?.bluetoothLeScanner
+            if (scanner == null) {
+                TrackerStore.setScanStatus(this, "Bluetooth is off or BLE scanning is unavailable")
+                TrackerStore.setRunning(this, false)
+                stopSelf()
+                return
+            }
             scanner.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_POWER).build(), callback)
             scanning = true
-        } catch (_: SecurityException) { scanning = false }
+            TrackerStore.setScanStatus(this, "Scanning nearby BLE signals")
+        } catch (_: SecurityException) {
+            scanning = false
+            TrackerStore.setScanStatus(this, "Bluetooth access denied")
+            TrackerStore.setRunning(this, false)
+            stopSelf()
+            return
+        }
         handler.postDelayed({ endWindow() }, 20000)
     }
     private fun endWindow() {

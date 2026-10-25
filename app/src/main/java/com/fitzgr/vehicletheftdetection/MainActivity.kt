@@ -18,10 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
-    private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
+    private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (hasRequiredPermissions()) startMonitoring()
+        else TrackerStore.setScanStatus(this, "Bluetooth permissions are required for scanning")
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestNeededPermissions()
         setContent {
             MaterialTheme {
                 var refresh by remember { mutableIntStateOf(0) }
@@ -35,10 +37,8 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = {
-                                requestNeededPermissions()
-                                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
-                                    ContextCompat.startForegroundService(this@MainActivity, Intent(this@MainActivity, MonitorService::class.java).setAction("START"))
-                                }
+                                if (hasRequiredPermissions()) startMonitoring()
+                                else requestNeededPermissions()
                                 refresh++
                             }) { Text("Start monitoring") }
                             OutlinedButton(onClick = {
@@ -46,7 +46,8 @@ class MainActivity : ComponentActivity() {
                                 refresh++
                             }) { Text("Stop") }
                         }
-                        Text(if (running) "Monitoring requested" else "Stopped")
+                        Text(if (running) "Monitoring active" else "Monitoring stopped")
+                        Text("Scan status: ${TrackerStore.scanStatus(this@MainActivity)}")
                         TextButton(onClick = { refresh++ }) { Text("Refresh sightings") }
                         Text("Observed BLE devices: ${records.size}", style = MaterialTheme.typography.titleMedium)
                         LazyColumn {
@@ -68,11 +69,26 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    private fun requiredPermissions(): List<String> = buildList {
+        if (Build.VERSION.SDK_INT >= 31) {
+            add(Manifest.permission.BLUETOOTH_SCAN)
+            add(Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+    private fun hasRequiredPermissions() = requiredPermissions().all {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    }
+    private fun startMonitoring() {
+        TrackerStore.setScanStatus(this, "Starting Bluetooth scan...")
+        ContextCompat.startForegroundService(this, Intent(this, MonitorService::class.java).setAction("START"))
+    }
     private fun requestNeededPermissions() {
-        val wanted = mutableListOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        val wanted = requiredPermissions().toMutableList()
         if (Build.VERSION.SDK_INT >= 33) wanted += Manifest.permission.POST_NOTIFICATIONS
-        if (Build.VERSION.SDK_INT <= 30) wanted += Manifest.permission.ACCESS_FINE_LOCATION
         val missing = wanted.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray())
+        else startMonitoring()
     }
 }

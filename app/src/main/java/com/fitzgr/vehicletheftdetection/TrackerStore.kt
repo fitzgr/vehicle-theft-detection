@@ -9,6 +9,8 @@ data class SeenDevice(val key: String, val name: String, val hits: Int, val rssi
 object TrackerStore {
     private const val PREFS = "tracker_store"
     fun isRunning(ctx: Context) = ctx.getSharedPreferences(PREFS, 0).getBoolean("running", false)
+    fun scanStatus(ctx: Context) = ctx.getSharedPreferences(PREFS, 0).getString("scanStatus", "Not started") ?: "Not started"
+    fun setScanStatus(ctx: Context, status: String) = ctx.getSharedPreferences(PREFS, 0).edit().putString("scanStatus", status).apply()
     fun setRunning(ctx: Context, value: Boolean) = ctx.getSharedPreferences(PREFS, 0).edit().putBoolean("running", value).apply()
     @Synchronized fun read(ctx: Context): List<SeenDevice> {
         val array = JSONArray(ctx.getSharedPreferences(PREFS, 0).getString("devices", "[]"))
